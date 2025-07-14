@@ -5,7 +5,7 @@ import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   create(dto: CreatePostDto) {
     return this.prisma.post.create({
@@ -16,8 +16,12 @@ export class PostsService {
     });
   }
 
-  findAll() {
+  findAll(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
     return this.prisma.post.findMany({
+      skip,
+      take: limit,
       include: { author: true },
       orderBy: { createdAt: 'desc' },
     });
