@@ -2,18 +2,24 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePostDto } from '../controllers/posts/dto/create-post.dto';
 import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
+import { TypesenseService } from 'src/typesense/typesense.service';
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private typesense: TypesenseService) { }
 
-  create(dto: CreatePostDto) {
-    return this.prisma.post.create({
+  async create(dto: CreatePostDto) {
+    const post = await this.prisma.post.create({
       data: {
         content: dto.content,
         authorId: dto.authorId,
       },
     });
+    await this.typesense.indexPost({
+      ...post,
+      createdAt: new Date(post.createdAt).getTime(),
+    });
+    return post;
   }
 
   findAll(page: number, limit: number) {
@@ -36,14 +42,24 @@ export class PostsService {
     return post;
   }
 
-  update(id: string, dto: UpdatePostDto) {
-    return this.prisma.post.update({
+  async update(id: string, dto: UpdatePostDto) {
+    const post = await this.prisma.post.update({
       where: { id },
       data: dto,
     });
+    await this.typesense.indexPost({
+      ...post,
+      createdAt: new Date(post.createdAt).getTime(),
+    });
+    return post;
   }
 
-  remove(id: string) {
-    return this.prisma.post.delete({ where: { id } });
+  async remove(id: string) {
+    await this.prisma.post.delete({ where: { id } });
+    await this.typesense.deletePost(id);
+  }
+
+  async search(query: string) {
+    return this.typesense.searchPosts(query);
   }
 }

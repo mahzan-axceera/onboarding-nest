@@ -9,7 +9,7 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { format } from 'date-fns';
- 
+
 export type Response<T> = {
   status: boolean;
   statusCode: number;
@@ -18,56 +18,53 @@ export type Response<T> = {
   data: T;
   timestamp: string;
 };
- 
+
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
- 
   intercept(
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<Response<T>> {
     return next.handle().pipe(
       map((res: unknown) => this.responseHandler(res, context)),
-      catchError((err: HttpException) =>
-        throwError(() => this.errorHandler(err, context)),
-      ),
+      catchError((exception: HttpException) => {
+        const ctx = context.switchToHttp();
+        const request = ctx.getRequest();
+
+        const status =
+          exception instanceof HttpException
+            ? exception.getStatus()
+            : HttpStatus.INTERNAL_SERVER_ERROR;
+
+        return throwError(() =>
+          new HttpException(
+            {
+              status: false,
+              statusCode: status,
+              path: request.url,
+              message: exception.message,
+              result: exception,
+              timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+            },
+            status,
+          ),
+        );
+      }),
     );
   }
- 
-  errorHandler(exception: HttpException, context: ExecutionContext) {
-    const ctx = context.switchToHttp();
-    const response = ctx.getResponse();
-    const request = ctx.getRequest();
- 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
- 
-    response.status(status).json({
-      status: false,
-      statusCode: status,
-      path: request.url,
-      message: exception.message,
-      result: exception,
-      timestamp: format(new Date().toISOString(), 'yyyy-MM-dd HH:mm:ss'),
-    });
-  }
- 
+
   responseHandler(res: any, context: ExecutionContext) {
     const ctx = context.switchToHttp();
-    const response = ctx.getResponse();
     const request = ctx.getRequest();
-    const statusCode = response.statusCode;
- 
- 
+    const statusCode = ctx.getResponse().statusCode;
+
     return {
       status: true,
       path: request.url,
       statusCode,
       message: 'Success',
       data: res,
-      timestamp: format(new Date().toISOString(), 'yyyy-MM-dd HH:mm:ss'),
+      timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
     };
   }
 }

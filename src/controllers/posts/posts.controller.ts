@@ -17,12 +17,18 @@ export class PostsController {
   @Get()
   @ApiOperation({
     summary: 'Get all posts',
-    description: 'Retrieve a paginated list of all posts with their authors.',})
+    description: 'Retrieve a paginated list of all posts with their authors.',
+  })
   findAll(
     @Query('page') page = '1',
     @Query('limit') limit = '10'
   ) {
     return this.postsService.findAll(+page, +limit);
+  }
+
+  @Get('search')
+  search(@Query('q') q: string) {
+    return this.postsService.search(q);
   }
 
   @Get(':id')
