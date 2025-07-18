@@ -5,7 +5,9 @@ export const postSchema: CollectionCreateSchema = {
   name: 'posts',
   fields: [
     { name: 'id', type: 'string' },
-    { name: 'content', type: 'string' },
+    { name: 'title', type: 'string' },
+    { name: 'bodyText', type: 'string' },
+    { name: 'imageUrl', type: 'string' },
     { name: 'authorId', type: 'string' },
     { name: 'createdAt', type: 'int64' },
   ],

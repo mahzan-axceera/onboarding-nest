@@ -42,7 +42,7 @@ export class TypesenseService implements OnModuleInit {
   async searchPosts(query: string) {
     const searchResult = await this.client.collections('posts').documents().search({
       q: query,
-      query_by: 'content',
+      query_by: 'title,bodyText',
     });
     return searchResult.hits?.map(hit => hit.document) ?? [];
   }

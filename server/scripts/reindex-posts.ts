@@ -1,4 +1,3 @@
-
 import { PrismaClient } from '@prisma/client';
 import { Client } from 'typesense';
 
@@ -16,9 +15,10 @@ const typesense = new Client({
     createdAt: new Date(post.createdAt).getTime(),
   }));
 
-  for (const post of formatted) {
-    await typesense.collections('posts').documents().upsert(post);
-  }
+  await typesense.collections('posts').documents().import(
+    formatted.map(p => JSON.stringify(p)).join('\n'),
+    { action: 'upsert' }
+  )
 
   console.log('✅ Reindexing complete');
 })();
