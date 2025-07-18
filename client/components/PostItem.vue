@@ -1,6 +1,12 @@
 <script setup lang="ts">
-defineProps({ post: Object });
-const emit = defineEmits(["delete", "view", "edit"]);
+import type { Post } from '~/types/post';
+
+defineProps<{ post: Post; }>();
+const emit = defineEmits<{
+  (e: "delete"): void;
+  (e: "view"): void;
+  (e: "edit"): void;
+}>();
 
 function handleDelete() {
   emit("delete");
@@ -33,7 +39,7 @@ function handleDelete() {
 
     <!-- Content -->
     <p class="text-base text-gray-900 mb-3 whitespace-pre-line">
-      {{ post.content }}
+      {{ post.title }}
     </p>
 
     <!-- Actions -->

@@ -1,28 +1,28 @@
 <script setup lang="ts">
+import { ref } from "vue";
+import type { Post } from "~/types/post";
+import EditPostModal from "./EditPostModal.vue";
 import PostItem from "./PostItem.vue";
-import ViewPostModal from './ViewPostModal.vue'
-import EditPostModal from './EditPostModal.vue'
+import ViewPostModal from "./ViewPostModal.vue";
 
-defineProps({ posts: Array });
-const emit = defineEmits(["delete", "updated"]);
+defineProps<{ posts: Post[] }>();
+const emit = defineEmits<{
+  (e: "delete", id: string): void;
+  (e: "updated"): void;
+}>();
 
-import { ref } from 'vue'
-import type { Post } from "~/stores/posts";
-
-const selectedPost = ref<Post | null>(null)
-const showView = ref(false)
-const showEdit = ref(false)
+const selectedPost = ref<Post | null>(null);
+const showView = ref(false);
+const showEdit = ref(false);
 
 function openView(post: Post) {
-  selectedPost.value = post
-  showView.value = true
+  selectedPost.value = post;
+  showView.value = true;
 }
 
 function openEdit(post: Post) {
-  console.log('post to edit:', post);
-  
-  selectedPost.value = post
-  showEdit.value = true
+  selectedPost.value = post;
+  showEdit.value = true;
 }
 </script>
 
@@ -37,7 +37,11 @@ function openEdit(post: Post) {
       @edit="openEdit(post)"
     />
 
-    <ViewPostModal v-if="selectedPost" v-model:visible="showView" :post="selectedPost" />
+    <ViewPostModal
+      v-if="selectedPost"
+      v-model:visible="showView"
+      :post="selectedPost"
+    />
     <EditPostModal
       v-if="selectedPost"
       v-model:visible="showEdit"

@@ -1,48 +1,27 @@
 import { defineStore } from 'pinia';
+import type { State, ActionResult, Post } from '~/types/post';
 
-export interface Post {
-  id: string;
-  content: string;
-  authorId: string;
-  createdAt: string;
-  author: {
-    id: string;
-    name: string;
-    email: string;
-    createdAt: string;
-  };
-}
-
-interface State {
-  posts: Post[];
-  loading: boolean;
-  loadingUpdate: boolean;
-  currentPage: number;
-  totalPages: number;
-  limit: number;
-  totalPosts: number;
-}
-
-interface ActionResult {
-  success: boolean;
-  error?: string;
-}
+// const config = useRuntimeConfig();
+const apiBaseUrl = 'http://localhost:3001';
 
 export const usePostsStore = defineStore('posts', {
   state: (): State => ({
     posts: [],
+    searchResults: [],
     loading: false,
     loadingUpdate: false,
     currentPage: 1,
     totalPages: 1,
     limit: 10,
     totalPosts: 0,
+    isSearchActive: false,
   }),
 
   actions: {
     async fetchTotalPosts(): Promise<ActionResult> {
+
       try {
-        const allPosts = await $fetch<{ data: Post[] }>('http://localhost:3001/posts?page=1&limit=1000');
+        const allPosts = await $fetch<{ data: Post[] }>(`${apiBaseUrl}/posts?page=1&limit=1000`);
         this.totalPosts = allPosts.data.length;
         this.totalPages = Math.ceil(this.totalPosts / this.limit);
         return { success: true };
@@ -54,7 +33,7 @@ export const usePostsStore = defineStore('posts', {
     async fetchPosts(page: number = 1): Promise<ActionResult> {
       this.loading = true;
       try {
-        const response = await $fetch<{ data: Post[] }>(`http://localhost:3001/posts?page=${page}&limit=${this.limit}`);
+        const response = await $fetch<{ data: Post[] }>(`${apiBaseUrl}/posts?page=${page}&limit=${this.limit}`);
         this.posts = response.data || [];
         this.currentPage = page;
         if (this.totalPosts === 0) {
@@ -62,6 +41,7 @@ export const usePostsStore = defineStore('posts', {
         } else {
           this.totalPages = Math.ceil(this.totalPosts / this.limit);
         }
+        this.isSearchActive = false;
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };
@@ -70,20 +50,67 @@ export const usePostsStore = defineStore('posts', {
       }
     },
 
-    async createPost(content: string): Promise<ActionResult> {
-      if (!content.trim()) return { success: false, error: 'Content cannot be empty' };
+    async searchPosts(query: string, page: number = 1): Promise<ActionResult> {
+      if (!query.trim()) return { success: false, error: 'Query cannot be empty' };
+      // Check cache
+      const cachedResult = this.searchResults.find((result) => result.query === query);
+      if (cachedResult && Date.now() - cachedResult.timestamp < 5 * 60 * 1000) { // Cache valid for 5 minutes
+        this.posts = cachedResult.posts.slice((page - 1) * this.limit, page * this.limit);
+        this.currentPage = page;
+        this.totalPages = Math.ceil(cachedResult.posts.length / this.limit);
+        this.isSearchActive = true;
+        return { success: true };
+      }
       this.loading = true;
       try {
-        await $fetch('http://localhost:3001/posts', {
+        const response = await $fetch<{ status: boolean; data: Post[] }>(
+          `${apiBaseUrl}/posts/search?q=${encodeURIComponent(query)}`
+        );
+        if (response.status && response.data) {
+          this.searchResults = [
+            { query, posts: response.data, timestamp: Date.now() },
+            ...this.searchResults.slice(0, 4),
+          ];
+          this.posts = response.data.slice((page - 1) * this.limit, page * this.limit);
+          this.currentPage = page;
+          this.totalPages = Math.ceil(response.data.length / this.limit);
+          this.isSearchActive = true;
+          return { success: true };
+        } else {
+          this.posts = [];
+          this.currentPage = 1;
+          this.totalPages = 1;
+          this.isSearchActive = true;
+          return { success: false, error: 'No results found' };
+        }
+      } catch (error: any) {
+        this.posts = [];
+        this.currentPage = 1;
+        this.totalPages = 1;
+        this.isSearchActive = true;
+        return { success: false, error: error.message };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async createPost(post: { title: string; bodyText?: string; imageUrl?: string }): Promise<ActionResult> {
+      if (!post.title.trim()) return { success: false, error: 'Title cannot be empty' };
+      this.loading = true;
+      try {
+        await $fetch(`${apiBaseUrl}/posts`, {
           method: 'POST',
           body: {
-            content,
+            title: post.title,
+            bodyText: post.bodyText,
+            imageUrl: post.imageUrl,
             authorId: 'f71d155b-2b45-4f6c-85b9-1be1a846d3f3',
           },
         });
         await this.fetchPosts(this.currentPage);
         this.totalPosts++;
         this.totalPages = Math.ceil(this.totalPosts / this.limit);
+        this.searchResults = []; // Clear cache on new post
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };
@@ -96,11 +123,12 @@ export const usePostsStore = defineStore('posts', {
       const previousPosts = [...this.posts];
       this.posts = this.posts.filter((post) => post.id !== id);
       try {
-        await $fetch(`http://localhost:3001/posts/${id}`, {
+        await $fetch(`${apiBaseUrl}/posts/${id}`, {
           method: 'DELETE',
         });
         this.totalPosts = Math.max(0, this.totalPosts - 1);
         this.totalPages = Math.ceil(this.totalPosts / this.limit);
+        this.searchResults = []; // Clear cache on delete
         return { success: true };
       } catch (error: any) {
         this.posts = previousPosts;
@@ -108,21 +136,30 @@ export const usePostsStore = defineStore('posts', {
       }
     },
 
-    async updatePost(id: string, content: string): Promise<ActionResult> {
-      if (!content.trim()) return { success: false, error: 'Content cannot be empty' };
+    async updatePost(id: string, post: { title: string; bodyText?: string; imageUrl?: string }): Promise<ActionResult> {
+      if (!post.title.trim()) return { success: false, error: 'Title cannot be empty' };
       this.loadingUpdate = true;
       try {
-        await $fetch(`http://localhost:3001/posts/${id}`, {
+        await $fetch(`${apiBaseUrl}/posts/${id}`, {
           method: 'PATCH',
-          body: { content },
+          body: { title: post.title, bodyText: post.bodyText, imageUrl: post.imageUrl },
         });
         await this.fetchPosts(this.currentPage);
+        this.searchResults = []; // Clear cache on update
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };
       } finally {
         this.loadingUpdate = false;
       }
+    },
+
+    clearSearch() {
+      this.posts = [];
+      this.currentPage = 1;
+      this.totalPages = 1;
+      this.isSearchActive = false;
+      this.searchResults = []; // Clear cache on reset
     },
   },
 });
