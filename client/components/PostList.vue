@@ -18,6 +18,8 @@ function openView(post) {
 }
 
 function openEdit(post) {
+  console.log('post to edit:', post);
+  
   selectedPost.value = post
   showEdit.value = true
 }

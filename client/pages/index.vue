@@ -6,6 +6,7 @@ import { onMounted } from 'vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import ProgressSpinner from 'primevue/progressspinner';
 
 const postsStore = usePostsStore();
 const toast = useToast();
@@ -16,8 +17,8 @@ onMounted(async () => {
   if (!result.success) {
     toast.add({
       severity: 'error',
-      summary: 'Fetch Failed',
-      detail: result.error,
+      summary: 'Failed to Load Posts',
+      detail: result.error || 'An unexpected error occurred',
       life: 5000,
     });
   }
@@ -30,8 +31,8 @@ const handleCreatePost = async (content) => {
   } else {
     toast.add({
       severity: 'error',
-      summary: 'Post Failed',
-      detail: result.error,
+      summary: 'Failed to Create Post',
+      detail: result.error || 'An unexpected error occurred',
       life: 5000,
     });
   }
@@ -52,8 +53,8 @@ const handleDeletePost = async (id) => {
       } else {
         toast.add({
           severity: 'error',
-          summary: 'Delete Failed',
-          detail: result.error,
+          summary: 'Failed to Delete Post',
+          detail: result.error || 'An unexpected error occurred',
           life: 5000,
         });
       }
@@ -67,8 +68,8 @@ const changePage = async (page) => {
     if (!result.success) {
       toast.add({
         severity: 'error',
-        summary: 'Fetch Failed',
-        detail: result.error,
+        summary: 'Failed to Load Posts',
+        detail: result.error || 'An unexpected error occurred',
         life: 5000,
       });
     }
@@ -79,22 +80,34 @@ const changePage = async (page) => {
 <template>
   <div class="max-w-2xl mx-auto p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
     <PostForm :loading="postsStore.loading" @submit="handleCreatePost" />
-    <PostList :posts="postsStore.posts" @delete="handleDeletePost" @updated="() => postsStore.fetchPosts(postsStore.currentPage)" />
-    <div v-if="postsStore.totalPages > 1" class="flex justify-between items-center mt-4">
+    
+    <!-- Loading Spinner for Post List -->
+    <div v-if="postsStore.loading" class="flex justify-center py-4">
+      <ProgressSpinner style="width: 50px; height: 50px" />
+    </div>
+    <PostList
+      v-else
+      :posts="postsStore.posts"
+      @delete="handleDeletePost"
+      @updated="() => postsStore.fetchPosts(postsStore.currentPage)"
+    />
+    
+    <!-- Pagination Controls -->
+    <div v-if="postsStore.totalPages > 1" class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-2 sm:space-y-0 sm:space-x-4">
       <Button
         label="Previous"
-        :disabled="postsStore.currentPage === 1"
+        :disabled="postsStore.currentPage === 1 || postsStore.loading"
         @click="changePage(postsStore.currentPage - 1)"
-        class="p-button-outlined"
+        class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
       />
       <span class="text-sm text-gray-600">
         Page {{ postsStore.currentPage }} of {{ postsStore.totalPages }}
       </span>
       <Button
         label="Next"
-        :disabled="postsStore.currentPage === postsStore.totalPages"
+        :disabled="postsStore.currentPage === postsStore.totalPages || postsStore.loading"
         @click="changePage(postsStore.currentPage + 1)"
-        class="p-button-outlined"
+        class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
       />
     </div>
   </div>

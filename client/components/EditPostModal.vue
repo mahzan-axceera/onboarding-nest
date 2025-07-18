@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
-import Textarea from "primevue/textarea"; // Use Textarea instead of InputText
+import Textarea from "primevue/textarea";
 import { usePostsStore } from "~/stores/posts";
 import { useToast } from "primevue/usetoast";
 
@@ -59,7 +59,12 @@ async function updatePost() {
     <div class="space-y-4">
       <Textarea v-model="content" autoResize rows="5" class="w-full" />
       <div class="text-right">
-        <Button label="Update" @click="updatePost" class="p-button-success" />
+        <Button
+          :label="postsStore.loadingUpdate ? 'Updating...' : 'Update'"
+          :disabled="postsStore.loadingUpdate"
+          @click="updatePost"
+          class="p-button-success"
+        />
       </div>
     </div>
   </Dialog>
