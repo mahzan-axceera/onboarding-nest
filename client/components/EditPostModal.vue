@@ -2,15 +2,17 @@
 import { ref, watch } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
+import Textarea from "primevue/textarea"; // Use Textarea instead of InputText
+import { usePostsStore } from "~/stores/posts";
 import { useToast } from "primevue/usetoast";
-import { InputText } from "primevue";
 
 const props = defineProps({ post: Object });
 const visible = defineModel("visible", { type: Boolean });
 const emit = defineEmits(["updated"]);
 
-const content = ref("");
+const postsStore = usePostsStore();
 const toast = useToast();
+const content = ref("");
 
 watch(
   () => props.post,
@@ -21,23 +23,28 @@ watch(
 );
 
 async function updatePost() {
-  try {
-    console.log("Updating post:", props.post.id);
-    await $fetch(`http://localhost:3001/posts/${props.post.id}`, {
-      method: "PATCH",
-      body: { content: content.value },
-    });
-    toast.add({ severity: "success", summary: "Post Updated", life: 3000 });
-    emit("updated");
-    visible.value = false;
-  } catch (e) {
+  if (!content.value.trim()) {
     toast.add({
       severity: "error",
       summary: "Update Failed",
-      detail: e.message,
+      detail: "Content cannot be empty",
       life: 5000,
     });
-    console.error("Update failed:", e);
+    return;
+  }
+
+  const result = await postsStore.updatePost(props.post.id, content.value);
+  if (result.success) {
+    toast.add({ severity: "success", summary: "Post Updated", life: 3000 });
+    emit("updated");
+    visible.value = false;
+  } else {
+    toast.add({
+      severity: "error",
+      summary: "Update Failed",
+      detail: result.error,
+      life: 5000,
+    });
   }
 }
 </script>
@@ -50,7 +57,7 @@ async function updatePost() {
     :style="{ width: '30rem' }"
   >
     <div class="space-y-4">
-      <InputText v-model="content" autoResize rows="5" class="w-full" />
+      <Textarea v-model="content" autoResize rows="5" class="w-full" />
       <div class="text-right">
         <Button label="Update" @click="updatePost" class="p-button-success" />
       </div>
