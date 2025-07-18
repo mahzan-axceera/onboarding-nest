@@ -1,18 +1,22 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
-import { usePostsStore } from "~/stores/posts";
+import { usePostsStore, type Post } from "~/stores/posts";
 import { useToast } from "primevue/usetoast";
 
-const props = defineProps({ post: Object });
-const visible = defineModel("visible", { type: Boolean });
-const emit = defineEmits(["updated"]);
+const props = defineProps<{
+  post: Post | null;
+}>();
+const visible = defineModel<boolean>("visible");
+const emit = defineEmits<{
+  (e: "updated"): void;
+}>();
 
 const postsStore = usePostsStore();
 const toast = useToast();
-const content = ref("");
+const content = ref<string>("");
 
 watch(
   () => props.post,
@@ -33,18 +37,20 @@ async function updatePost() {
     return;
   }
 
-  const result = await postsStore.updatePost(props.post.id, content.value);
-  if (result.success) {
-    toast.add({ severity: "success", summary: "Post Updated", life: 3000 });
-    emit("updated");
-    visible.value = false;
-  } else {
-    toast.add({
-      severity: "error",
-      summary: "Update Failed",
-      detail: result.error,
-      life: 5000,
-    });
+  if (props.post?.id) {
+    const result = await postsStore.updatePost(props.post.id, content.value);
+    if (result.success) {
+      toast.add({ severity: "success", summary: "Post Updated", life: 3000 });
+      emit("updated");
+      visible.value = false;
+    } else {
+      toast.add({
+        severity: "error",
+        summary: "Update Failed",
+        detail: result.error || "An unexpected error occurred",
+        life: 5000,
+      });
+    }
   }
 }
 </script>

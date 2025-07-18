@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import PostItem from "./PostItem.vue";
 import ViewPostModal from './ViewPostModal.vue'
 import EditPostModal from './EditPostModal.vue'
@@ -7,17 +7,18 @@ defineProps({ posts: Array });
 const emit = defineEmits(["delete", "updated"]);
 
 import { ref } from 'vue'
+import type { Post } from "~/stores/posts";
 
-const selectedPost = ref(null)
+const selectedPost = ref<Post | null>(null)
 const showView = ref(false)
 const showEdit = ref(false)
 
-function openView(post) {
+function openView(post: Post) {
   selectedPost.value = post
   showView.value = true
 }
 
-function openEdit(post) {
+function openEdit(post: Post) {
   console.log('post to edit:', post);
   
   selectedPost.value = post

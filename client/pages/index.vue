@@ -1,7 +1,5 @@
-<script setup>
+<script setup lang="ts">
 import { usePostsStore } from '~/stores/posts';
-import PostForm from '~/components/PostForm.vue';
-import PostList from '~/components/PostList.vue';
 import { onMounted } from 'vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
@@ -24,7 +22,7 @@ onMounted(async () => {
   }
 });
 
-const handleCreatePost = async (content) => {
+const handleCreatePost = async (content: string) => {
   const result = await postsStore.createPost(content);
   if (result.success) {
     toast.add({ severity: 'success', summary: 'Post Created', life: 3000 });
@@ -38,7 +36,7 @@ const handleCreatePost = async (content) => {
   }
 };
 
-const handleDeletePost = async (id) => {
+const handleDeletePost = async (id: string) => {
   confirm.require({
     message: 'Are you sure you want to delete this post?',
     header: 'Delete Confirmation',
@@ -62,7 +60,7 @@ const handleDeletePost = async (id) => {
   });
 };
 
-const changePage = async (page) => {
+const changePage = async (page: number) => {
   if (page >= 1 && page <= postsStore.totalPages) {
     const result = await postsStore.fetchPosts(page);
     if (!result.success) {

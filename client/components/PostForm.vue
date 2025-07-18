@@ -1,20 +1,27 @@
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+import { ref } from "vue";
 
-const emit = defineEmits(['submit'])
-defineProps({ loading: Boolean })
+const emit = defineEmits<{
+  (e: "submit", content: string): void;
+}>();
+defineProps<{
+  loading: boolean;
+}>();
 
-const content = ref('')
+const content = ref<string>("");
 
 function handleSubmit() {
-  if (!content.value.trim()) return
-  emit('submit', content.value)
-  content.value = ''
+  if (!content.value.trim()) return;
+  emit("submit", content.value);
+  content.value = "";
 }
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm">
+  <form
+    @submit.prevent="handleSubmit"
+    class="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm"
+  >
     <textarea
       v-model="content"
       rows="3"
@@ -27,7 +34,7 @@ function handleSubmit() {
         :disabled="loading"
         class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {{ loading ? 'Posting...' : 'Post' }}
+        {{ loading ? "Posting..." : "Post" }}
       </button>
     </div>
   </form>

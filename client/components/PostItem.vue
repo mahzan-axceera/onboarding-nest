@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 defineProps({ post: Object });
 const emit = defineEmits(["delete", "view", "edit"]);
 
