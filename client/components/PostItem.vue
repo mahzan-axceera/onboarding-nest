@@ -111,7 +111,7 @@ function handleDelete() {
       class="w-24 h-24 flex-shrink-0 rounded overflow-hidden border border-gray-200"
     >
       <img
-        :src="post.imageUrl || 'https://placehold.co/600x400@2x.png'"
+        :src="post.imageUrl || `https://picsum.photos/seed/${post.id}/600/400?grayscale` "
         alt="Post preview"
         class="w-full h-full object-cover"
       />
