@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { z } from "zod";
 import type { PostInput } from "~/types/post";
 
 const emit = defineEmits<{
@@ -13,6 +14,23 @@ const title = ref<string>("");
 const bodyText = ref<string>("");
 const imageUrl = ref<string | undefined>(undefined);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+const postSchema = z.object({
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .min(3, "Title must be at least 3 characters")
+    .max(100, "Title must be at most 100 characters"),
+
+  bodyText: z
+    .string()
+    .min(1, "Body text is required")
+    .min(3, "Body text must be at least 3 characters")
+    .max(250, "Body text must be at most 500 characters"),
+  imageUrl: z.string().url("Invalid image URL").optional(),
+});
+
+const formErrors = ref<Partial<Record<keyof PostInput, string>>>({});
 
 // Handle image file upload
 function handleImageUpload(e: Event) {
@@ -30,15 +48,25 @@ function handleImageUpload(e: Event) {
 }
 
 function handleSubmit() {
-  if (!title.value.trim()) return;
-
-  const submittedImageUrl = imageUrl.value;
-
-  emit("submit", {
+  const payload = {
     title: title.value.trim(),
-    bodyText: bodyText.value.trim() || undefined,
-    imageUrl: submittedImageUrl || undefined,
-  });
+    bodyText: bodyText.value.trim(),
+    imageUrl: imageUrl.value || undefined,
+  };
+
+  const result = postSchema.safeParse(payload);
+
+  if (!result.success) {
+    formErrors.value = {};
+    for (const issue of result.error.issues) {
+      formErrors.value[issue.path[0] as keyof PostInput] = issue.message;
+    }
+    return;
+  }
+
+  formErrors.value = {};
+
+  emit("submit", result.data);
 
   title.value = "";
   bodyText.value = "";
@@ -48,11 +76,10 @@ function handleSubmit() {
     fileInputRef.value.value = "";
   }
 
-  // ✅ Delay revoke to allow rendering
-  if (submittedImageUrl?.startsWith("blob:")) {
+  if (payload.imageUrl?.startsWith("blob:")) {
     setTimeout(() => {
-      URL.revokeObjectURL(submittedImageUrl);
-    }, 3000); // 3 seconds is usually safe
+      URL.revokeObjectURL(payload.imageUrl!);
+    }, 3000);
   }
 }
 </script>
@@ -68,7 +95,11 @@ function handleSubmit() {
         type="text"
         placeholder="Title"
         class="w-full p-2 text-sm text-gray-800 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+        :class="{ 'border-red-500': formErrors.title }"
       />
+      <p v-if="formErrors.title" class="text-xs text-red-500 mt-1">
+        {{ formErrors.title }}
+      </p>
     </div>
 
     <div>
@@ -77,7 +108,11 @@ function handleSubmit() {
         rows="2"
         placeholder="What's on your mind?"
         class="w-full p-2 text-sm text-gray-800 border border-gray-300 rounded resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+        :class="{ 'border-red-500': formErrors.bodyText }"
       ></textarea>
+      <p v-if="formErrors.bodyText" class="text-xs text-red-500 mt-1">
+        {{ formErrors.bodyText }}
+      </p>
     </div>
 
     <div class="flex items-center justify-between gap-3">
@@ -88,6 +123,9 @@ function handleSubmit() {
         @change="handleImageUpload"
         class="block text-xs text-gray-600 file:text-sm file:bg-blue-50 file:border-0 file:px-3 file:py-1 file:rounded-full file:text-blue-600 hover:file:bg-blue-100"
       />
+      <p v-if="formErrors.imageUrl" class="text-xs text-red-500 mt-1">
+        {{ formErrors.imageUrl }}
+      </p>
       <button
         type="submit"
         :disabled="loading || !title.trim()"
