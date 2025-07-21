@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PostsService } from '../../services/posts.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -10,8 +11,10 @@ export class PostsController {
   constructor(private readonly postsService: PostsService) { }
 
   @Post()
-  create(@Body() dto: CreatePostDto) {
-    return this.postsService.create(dto);
+  @UseGuards(JwtAuthGuard) // Protect POST /posts
+  @ApiOperation({ summary: 'Create a new post (authenticated users only)' })
+  create(@Body() dto: CreatePostDto, @Request() req) {
+    return this.postsService.create(dto, req.user.sub);
   }
 
   @Get()
@@ -27,22 +30,28 @@ export class PostsController {
   }
 
   @Get('search')
+  @ApiOperation({ summary: 'Search posts' })
   search(@Query('q') q: string) {
     return this.postsService.search(q);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a post by ID' })
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePostDto) {
-    return this.postsService.update(id, dto);
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update a post (authenticated users only)' })
+  update(@Param('id') id: string, @Body() dto: UpdatePostDto, @Request() req) {
+    return this.postsService.update(id, dto, req.user.sub);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.postsService.remove(id);
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Delete a post (authenticated users only)' })
+  remove(@Param('id') id: string, @Request() req) {
+    return this.postsService.remove(id, req.user.sub);
   }
 }

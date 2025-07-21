@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreatePostDto {
 
   @ApiProperty({ example: 'Post title' })
+  @IsNotEmpty()
   @IsString()
   title: string
 
@@ -16,10 +17,5 @@ export class CreatePostDto {
   @IsOptional()
   @IsString()
   imageUrl?: string
-
-  @ApiProperty({ example: 'uuid-of-author' })
-  @IsString()
-  authorId: string;
-
 
 }
