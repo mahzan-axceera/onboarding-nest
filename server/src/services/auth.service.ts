@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { RegisterDto } from 'src/controllers/auth/dto/register.dto';
+import { RegisterDto, Role } from 'src/controllers/auth/dto/register.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDto } from 'src/controllers/auth/dto/login.dto';
 
@@ -15,16 +15,39 @@ export class AuthService {
     ) { }
 
     async register(dto: RegisterDto) {
+        // Check if user already exists
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: dto.email },
+        });
+
+        if (existingUser) {
+            throw new BadRequestException('Email already in use');
+        }
+
+        // Check if this is the first user
+        const userCount = await this.prisma.user.count();
+
+        const role = userCount === 0 ? Role.ADMIN : Role.CUSTOMER;
+
+        // Hash password
         const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+        // Create user
         const user = await this.prisma.user.create({
             data: {
                 email: dto.email,
                 name: dto.name,
                 password: hashedPassword,
-                role: dto.role || 'Customer', // Default to Customer
+                role,
             },
         });
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+
+        return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+        };
     }
 
     async login(dto: LoginDto) {
@@ -44,6 +67,30 @@ export class AuthService {
     }
 
     async generateRefreshToken(userId: string) {
+        // Clean up expired tokens
+        await this.prisma.refreshToken.deleteMany({
+            where: {
+                userId,
+                expiresAt: { lte: new Date() }, // Delete tokens that are expired
+            },
+        });
+
+        // Limit to 5 refresh tokens per user
+        const MAX_TOKENS = this.configService.get<number>('JWT_MAX_REFRESH_TOKENS') || 5;
+        const existingTokens = await this.prisma.refreshToken.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'asc' }, // Oldest first
+        });
+
+        if (existingTokens.length >= MAX_TOKENS) {
+            // Delete the oldest token(s)
+            const tokensToDelete = existingTokens.slice(0, existingTokens.length - MAX_TOKENS + 1);
+            await this.prisma.refreshToken.deleteMany({
+                where: { id: { in: tokensToDelete.map((token) => token.id) } },
+            });
+        }
+
+        // Create new refresh token
         const token = this.jwtService.sign(
             { sub: userId },
             {
