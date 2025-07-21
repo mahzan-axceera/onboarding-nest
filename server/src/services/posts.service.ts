@@ -45,18 +45,22 @@ export class PostsService {
   }
 
   async update(id: string, dto: UpdatePostDto) {
-    const post = await this.prisma.post.update({
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Post not found');
+    const updatedPost = await this.prisma.post.update({
       where: { id },
       data: dto,
     });
     await this.typesense.indexPost({
-      ...post,
-      createdAt: new Date(post.createdAt).getTime(),
+      ...updatedPost,
+      createdAt: new Date(updatedPost.createdAt).getTime(),
     });
-    return post;
+    return updatedPost;
   }
 
   async remove(id: string) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Post not found');
     await this.prisma.post.delete({ where: { id } });
     await this.typesense.deletePost(id);
   }
