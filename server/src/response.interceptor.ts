@@ -15,7 +15,7 @@ export type Response<T> = {
   statusCode: number;
   path: string;
   message: string;
-  data: T;
+  data?: T;
   timestamp: string;
 };
 
@@ -26,8 +26,8 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
     next: CallHandler,
   ): Observable<Response<T>> {
     return next.handle().pipe(
-      map((res: unknown) => this.responseHandler(res, context)),
-      catchError((exception: HttpException) => {
+      map((data: unknown) => this.responseHandler(data, context)),
+      catchError((exception: HttpException | Error) => {
         const ctx = context.switchToHttp();
         const request = ctx.getRequest();
 
@@ -36,24 +36,29 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
             ? exception.getStatus()
             : HttpStatus.INTERNAL_SERVER_ERROR;
 
-        return throwError(() =>
-          new HttpException(
-            {
-              status: false,
-              statusCode: status,
-              path: request.url,
-              message: exception.message,
-              result: exception,
-              timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-            },
-            status,
-          ),
+        const message =
+          exception instanceof HttpException
+            ? exception.message
+            : 'Internal server error';
+
+        return throwError(
+          () =>
+            new HttpException(
+              {
+                status: false,
+                statusCode: status,
+                path: request.url,
+                message,
+                timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+              },
+              status,
+            ),
         );
       }),
     );
   }
 
-  responseHandler(res: any, context: ExecutionContext) {
+  responseHandler(data: any, context: ExecutionContext) {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
     const statusCode = ctx.getResponse().statusCode;
@@ -63,7 +68,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
       path: request.url,
       statusCode,
       message: 'Success',
-      data: res,
+      data,
       timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
     };
   }
