@@ -3,6 +3,7 @@ import { TypesenseService } from 'src/typesense/typesense.service';
 import { CreatePostDto } from '../controllers/posts/dto/create-post.dto';
 import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { Role } from 'src/controllers/auth/dto/register.dto';
 
 @Injectable()
 export class PostsService {
@@ -75,10 +76,12 @@ export class PostsService {
     return updatedPost;
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: number, userId: number, userRole: Role) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
-    // if (post.authorId !== userId) throw new UnauthorizedException('Not authorized to delete this post');
+    if (post.authorId !== userId && userRole !== Role.ADMIN) {
+      throw new UnauthorizedException('Not authorized to delete this post');
+    }
 
     await this.prisma.post.delete({ where: { id } });
     await this.typesense.deletePost(id.toString());

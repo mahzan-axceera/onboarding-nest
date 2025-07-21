@@ -53,9 +53,8 @@ export class PostsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN) // Only allow Admins to delete posts
-  @ApiOperation({ summary: 'Delete a post (Admins only)' })
+  @ApiOperation({ summary: 'Delete a post (Creator & Admin only)' })
   remove(@Param('id') id: number, @Request() req) {
-    return this.postsService.remove(id, req.user.sub);
+    return this.postsService.remove(id, req.user.sub, req.user.role);
   }
 }
