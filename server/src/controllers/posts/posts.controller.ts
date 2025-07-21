@@ -4,6 +4,9 @@ import { PostsService } from '../../services/posts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { RolesGuard } from '../auth/roles.guard';
+import { Role } from '../auth/dto/register.dto';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -49,8 +52,9 @@ export class PostsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Delete a post (authenticated users only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN) // Only allow Admins to delete posts
+  @ApiOperation({ summary: 'Delete a post (Admins only)' })
   remove(@Param('id') id: string, @Request() req) {
     return this.postsService.remove(id, req.user.sub);
   }
