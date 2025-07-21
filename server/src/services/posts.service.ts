@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class PostsService {
   constructor(private prisma: PrismaService, private typesense: TypesenseService) { }
 
-  async create(dto: CreatePostDto, userId: string) {
+  async create(dto: CreatePostDto, userId: number) {
     try {
       // Create the post
       const post = await this.prisma.post.create({
@@ -24,6 +24,7 @@ export class PostsService {
         // Index to Typesense separately
         await this.typesense.indexPost({
           ...post,
+          id: post.id.toString(), // Ensure id is a string for Typesense
           createdAt: new Date(post.createdAt).getTime(),
         });
       } catch (typesenseErr) {
@@ -49,7 +50,7 @@ export class PostsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: number) {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: { author: true },
@@ -58,7 +59,7 @@ export class PostsService {
     return post;
   }
 
-  async update(id: string, dto: UpdatePostDto, userId: string) {
+  async update(id: number, dto: UpdatePostDto, userId: number) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
     if (post.authorId !== userId) throw new UnauthorizedException('Not authorized to update this post');
@@ -74,13 +75,13 @@ export class PostsService {
     return updatedPost;
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: number, userId: number) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
     // if (post.authorId !== userId) throw new UnauthorizedException('Not authorized to delete this post');
 
     await this.prisma.post.delete({ where: { id } });
-    await this.typesense.deletePost(id);
+    await this.typesense.deletePost(id.toString());
   }
 
   async search(query: string) {

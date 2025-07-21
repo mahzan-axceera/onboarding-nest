@@ -8,7 +8,7 @@ export const postSchema: CollectionCreateSchema = {
     { name: 'title', type: 'string' },
     { name: 'bodyText', type: 'string' },
     { name: 'imageUrl', type: 'string' },
-    { name: 'authorId', type: 'string' },
+    { name: 'authorId', type: 'int64' },
     { name: 'createdAt', type: 'int64' },
   ],
   default_sorting_field: 'createdAt',

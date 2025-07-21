@@ -66,7 +66,7 @@ export class AuthService {
         return { accessToken, refreshToken, user: { id: user.id, email: user.email, role: user.role } };
     }
 
-    async generateRefreshToken(userId: string) {
+    async generateRefreshToken(userId: number) {
         // Clean up expired tokens
         await this.prisma.refreshToken.deleteMany({
             where: {

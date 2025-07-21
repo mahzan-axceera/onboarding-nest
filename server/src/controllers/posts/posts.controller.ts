@@ -40,14 +40,14 @@ export class PostsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a post by ID' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: number) {
     return this.postsService.findOne(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Update a post (authenticated users only)' })
-  update(@Param('id') id: string, @Body() dto: UpdatePostDto, @Request() req) {
+  update(@Param('id') id: number, @Body() dto: UpdatePostDto, @Request() req) {
     return this.postsService.update(id, dto, req.user.sub);
   }
 
@@ -55,7 +55,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN) // Only allow Admins to delete posts
   @ApiOperation({ summary: 'Delete a post (Admins only)' })
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: number, @Request() req) {
     return this.postsService.remove(id, req.user.sub);
   }
 }

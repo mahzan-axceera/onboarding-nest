@@ -12,13 +12,16 @@ const typesense = new Client({
 
   const formatted = posts.map(post => ({
     ...post,
+    id: post.id.toString(), // required as string
+    authorId: Number(post.authorId), // required as int64
     createdAt: new Date(post.createdAt).getTime(),
   }));
 
-  await typesense.collections('posts').documents().import(
+  const result = await typesense.collections('posts').documents().import(
     formatted.map(p => JSON.stringify(p)).join('\n'),
     { action: 'upsert' }
-  )
+  );
 
+  console.log(result);
   console.log('✅ Reindexing complete');
 })();
