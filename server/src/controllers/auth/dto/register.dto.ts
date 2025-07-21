@@ -20,8 +20,4 @@ export class RegisterDto {
   @IsNotEmpty()
   @MinLength(8)
   password: string;
-
-  @ApiProperty({ example: 'CUSTOMER', enum: Role })
-  @IsEnum(Role)
-  role?: Role;
 }
