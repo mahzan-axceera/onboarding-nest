@@ -8,11 +8,25 @@ import ProgressSpinner from "primevue/progressspinner";
 import type { Post, PostInput } from "~/types/post";
 
 const postsStore = usePostsStore();
+const userStore = useAuthStore();
 const toast = useToast();
 const confirm = useConfirm();
 
-onMounted(async () => {
-  await fetchPosts();
+const user = computed(() => userStore.user);
+const isLoading = computed(() => userStore.loading);
+
+onMounted(() => {
+  const stop = watch(
+    () => userStore.initialized,
+    async (initialized) => {
+      if (!initialized) return;
+      stop();
+
+      if (userStore.user) {
+        await fetchPosts();
+      }
+    }
+  );
 });
 
 async function fetchPosts(page: number = postsStore.currentPage) {
@@ -39,7 +53,7 @@ const handleCreatePost = async (post: PostInput) => {
   });
 };
 
-const handleDeletePost = async (id: string) => {
+const handleDeletePost = async (id: number) => {
   confirm.require({
     message: "Are you sure you want to delete this post?",
     header: "Delete Confirmation",
@@ -96,57 +110,67 @@ const changePage = async (page: number) => {
   <div
     class="max-w-2xl mx-auto p-4 bg-white border border-gray-200 rounded-xl shadow-sm"
   >
-    <SearchBox
-      :loading="postsStore.loading"
-      @search="handleSearch"
-      @clear="handleClearSearch"
-    />
-    <PostForm :loading="postsStore.loading" @submit="handleCreatePost" />
+    <div v-if="user">
+      <SearchBox
+        :loading="postsStore.loading"
+        @search="handleSearch"
+        @clear="handleClearSearch"
+      />
+      <PostForm :loading="postsStore.loading" @submit="handleCreatePost" />
 
-    <!-- Loading Spinner for Post List -->
-    <div v-if="postsStore.loading" class="flex justify-center py-4">
+      <!-- Loading Spinner for Post List -->
+      <div v-if="postsStore.loading" class="flex justify-center py-4">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+      </div>
+      <div
+        v-else-if="postsStore.posts.length === 0 && postsStore.isSearchActive"
+        class="text-center text-gray-500 py-4"
+      >
+        No search results found
+      </div>
+      <PostList
+        v-else
+        :posts="postsStore.posts"
+        @delete="handleDeletePost"
+        @updated="
+          () =>
+            postsStore.isSearchActive
+              ? handleClearSearch()
+              : postsStore.fetchPosts(postsStore.currentPage)
+        "
+      />
+
+      <!-- Pagination Controls -->
+      <div
+        v-if="postsStore.totalPages > 1"
+        class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-2 sm:space-y-0 sm:space-x-4"
+      >
+        <Button
+          label="Previous"
+          :disabled="postsStore.currentPage === 1 || postsStore.loading"
+          @click="changePage(postsStore.currentPage - 1)"
+          class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
+        />
+        <span class="text-sm text-gray-600">
+          Page {{ postsStore.currentPage }} of {{ postsStore.totalPages }}
+        </span>
+        <Button
+          label="Next"
+          :disabled="
+            postsStore.currentPage === postsStore.totalPages ||
+            postsStore.loading
+          "
+          @click="changePage(postsStore.currentPage + 1)"
+          class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
+        />
+      </div>
+    </div>
+    <!-- <div>Loading....</div> -->
+    <div v-else-if="isLoading" class="flex justify-center py-4">
       <ProgressSpinner style="width: 50px; height: 50px" />
     </div>
-    <div
-      v-else-if="postsStore.posts.length === 0 && postsStore.isSearchActive"
-      class="text-center text-gray-500 py-4"
-    >
-      No search results found
-    </div>
-    <PostList
-      v-else
-      :posts="postsStore.posts"
-      @delete="handleDeletePost"
-      @updated="
-        () =>
-          postsStore.isSearchActive
-            ? handleClearSearch()
-            : postsStore.fetchPosts(postsStore.currentPage)
-      "
-    />
-
-    <!-- Pagination Controls -->
-    <div
-      v-if="postsStore.totalPages > 1"
-      class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-2 sm:space-y-0 sm:space-x-4"
-    >
-      <Button
-        label="Previous"
-        :disabled="postsStore.currentPage === 1 || postsStore.loading"
-        @click="changePage(postsStore.currentPage - 1)"
-        class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
-      />
-      <span class="text-sm text-gray-600">
-        Page {{ postsStore.currentPage }} of {{ postsStore.totalPages }}
-      </span>
-      <Button
-        label="Next"
-        :disabled="
-          postsStore.currentPage === postsStore.totalPages || postsStore.loading
-        "
-        @click="changePage(postsStore.currentPage + 1)"
-        class="p-button-outlined w-full sm:w-auto hover:bg-gray-100 transition"
-      />
+    <div v-else class="text-center text-gray-500 py-4">
+      Please log in to view and create posts.
     </div>
   </div>
 </template>

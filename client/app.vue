@@ -5,8 +5,6 @@ import { onMounted } from "vue";
 const authStore = useAuthStore();
 
 onMounted(async () => {
-  console.log("Checking authentication status on mount");
-  
   await authStore.refreshAccessToken();
 });
 </script>

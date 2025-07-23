@@ -16,6 +16,7 @@ export const useAuthStore = defineStore("auth", {
     user: null as User | null,
     accessToken: null as string | null,
     loading: false,
+    initialized: false,
   }),
 
   actions: {
@@ -89,6 +90,7 @@ export const useAuthStore = defineStore("auth", {
 
     async refreshAccessToken(): Promise<ActionResult> {
       this.loading = true;
+
       try {
         const response = await $fetch<{
           status: boolean;
@@ -111,15 +113,13 @@ export const useAuthStore = defineStore("auth", {
           );
           if (userResponse.status) {
             this.user = userResponse.data;
-            console.log("User data refreshed successfully", userResponse.data);
+            this.initialized = true;
             return { success: true };
           }
-          console.log("Failed to fetch user data after token refresh");
           return { success: false, error: "Failed to fetch user data" };
         }
         return { success: false, error: "Refresh token invalid" };
       } catch (error: any) {
-        console.log("Refresh token error:", error);
         return {
           success: false,
           error:
@@ -143,8 +143,7 @@ export const useAuthStore = defineStore("auth", {
           },
           credentials: "include",
         });
-        console.log(response, "Logout response"); // Debug log
-        
+
         if (response.status) {
           this.clearAuth();
           return { success: true };
@@ -164,6 +163,11 @@ export const useAuthStore = defineStore("auth", {
     clearAuth() {
       this.user = null;
       this.accessToken = null;
+
+      const postsStore = usePostsStore();
+      postsStore.$reset();
+      this.initialized = false;
+
       document.cookie =
         "refreshToken=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
       console.log("Cleared auth, cookies:", document.cookie);

@@ -9,6 +9,7 @@ import type { LoginInput } from "~/types/auth";
 const authStore = useAuthStore();
 const toast = useToast();
 const router = useRouter();
+const postsStore = usePostsStore();
 
 async function handleLogin(payload: LoginInput) {
   const result = await authStore.login(payload);
@@ -20,6 +21,7 @@ async function handleLogin(payload: LoginInput) {
       life: 3000,
     });
     router.push("/");
+    await postsStore.fetchPosts(1); // 👈 force refresh
   } else {
     toast.add({
       severity: "error",

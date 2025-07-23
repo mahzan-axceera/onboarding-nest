@@ -1,17 +1,26 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PostsService } from '../../services/posts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { RolesGuard } from '../auth/roles.guard';
-import { Role } from '../auth/dto/register.dto';
-import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('posts')
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) { }
+  constructor(private readonly postsService: PostsService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard) // Protect POST /posts
@@ -21,15 +30,21 @@ export class PostsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: 'Get all posts',
-    description: 'Retrieve a paginated list of all posts with their authors.',
+    summary: 'Get paginated posts (Admins see all, Users see own)',
   })
   findAll(
     @Query('page') page = '1',
-    @Query('limit') limit = '10'
+    @Query('limit') limit = '10',
+    @Request() req,
   ) {
-    return this.postsService.findAll(+page, +limit);
+    return this.postsService.findAll(
+      +page,
+      +limit,
+      req.user.sub,
+      req.user.role,
+    );
   }
 
   @Get('search')

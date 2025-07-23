@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { TypesenseService } from 'src/typesense/typesense.service';
 import { CreatePostDto } from '../controllers/posts/dto/create-post.dto';
 import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
@@ -7,7 +12,10 @@ import { Role } from 'src/controllers/auth/dto/register.dto';
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService, private typesense: TypesenseService) { }
+  constructor(
+    private prisma: PrismaService,
+    private typesense: TypesenseService,
+  ) {}
 
   async create(dto: CreatePostDto, userId: number) {
     try {
@@ -26,6 +34,7 @@ export class PostsService {
         await this.typesense.indexPost({
           ...post,
           id: post.id.toString(), // Ensure id is a string for Typesense
+          imageUrl: post.imageUrl || '',
           createdAt: new Date(post.createdAt).getTime(),
         });
       } catch (typesenseErr) {
@@ -41,12 +50,14 @@ export class PostsService {
     }
   }
 
-  findAll(page: number, limit: number) {
+  findAll(page: number, limit: number, userId: number, userRole: Role) {
     const skip = (page - 1) * limit;
+    const where = userRole === Role.ADMIN ? {} : { authorId: userId };
     return this.prisma.post.findMany({
+      where,
       skip,
       take: limit,
-      include: { author: true },
+      include: { author: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -54,7 +65,7 @@ export class PostsService {
   async findOne(id: number) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: { author: true },
+      include: { author: { select: { id: true, name: true, email: true } } },
     });
     if (!post) throw new NotFoundException('Post not found');
     return post;
@@ -63,7 +74,8 @@ export class PostsService {
   async update(id: number, dto: UpdatePostDto, userId: number) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
-    if (post.authorId !== userId) throw new UnauthorizedException('Not authorized to update this post');
+    if (post.authorId !== userId)
+      throw new UnauthorizedException('Not authorized to update this post');
 
     const updatedPost = await this.prisma.post.update({
       where: { id },
@@ -71,6 +83,8 @@ export class PostsService {
     });
     await this.typesense.indexPost({
       ...updatedPost,
+      id: updatedPost.id.toString(),
+      imageUrl: updatedPost.imageUrl || '',
       createdAt: new Date(updatedPost.createdAt).getTime(),
     });
     return updatedPost;
@@ -83,8 +97,18 @@ export class PostsService {
       throw new UnauthorizedException('Not authorized to delete this post');
     }
 
-    await this.prisma.post.delete({ where: { id } });
-    await this.typesense.deletePost(id.toString());
+    try {
+      await this.prisma.post.delete({ where: { id } });
+    } catch (e) {
+      throw new InternalServerErrorException('Failed to delete post from DB');
+    }
+
+    try {
+      await this.typesense.deletePost(id.toString());
+    } catch (e) {
+      console.warn(`⚠️ Failed to delete post ${id} from Typesense`, e);
+      // Not fatal — proceed silently or log it
+    }
   }
 
   async search(query: string) {

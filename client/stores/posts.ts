@@ -1,10 +1,10 @@
-import { defineStore } from 'pinia';
-import type { State, ActionResult, Post } from '~/types/post';
+import { defineStore } from "pinia";
+import type { State, ActionResult, Post } from "~/types/post";
 
 // const config = useRuntimeConfig();
-const apiBaseUrl = 'http://localhost:3001';
+const apiBaseUrl = "http://localhost:3001";
 
-export const usePostsStore = defineStore('posts', {
+export const usePostsStore = defineStore("posts", {
   state: (): State => ({
     posts: [],
     searchResults: [],
@@ -15,47 +15,116 @@ export const usePostsStore = defineStore('posts', {
     limit: 10,
     totalPosts: 0,
     isSearchActive: false,
+    fetchedUserId: null,
   }),
 
   actions: {
     async fetchTotalPosts(): Promise<ActionResult> {
-
+      const authStore = useAuthStore();
+      if (!authStore.accessToken) {
+        return { success: false, error: "User not authenticated" };
+      }
+      if (this.fetchedUserId === authStore.user?.id) return { success: true };
       try {
-        const allPosts = await $fetch<{ data: Post[] }>(`${apiBaseUrl}/posts?page=1&limit=1000`);
-        this.totalPosts = allPosts.data.length;
-        this.totalPages = Math.ceil(this.totalPosts / this.limit);
-        return { success: true };
+        const response = await $fetch<{ status: boolean; data: Post[] }>(
+          `${apiBaseUrl}/posts?page=1&limit=1000`,
+          {
+            headers: {
+              Authorization: `Bearer ${authStore.accessToken}`,
+            },
+            credentials: "include",
+          }
+        );
+        if (response.status) {
+          this.totalPosts = response.data.length;
+          this.totalPages = Math.ceil(this.totalPosts / this.limit);
+          return { success: true };
+        }
+        return { success: false, error: "Failed to fetch total posts" };
       } catch (error: any) {
-        return { success: false, error: error.message };
+        if (error.response?.status === 401) {
+          const refreshResult = await authStore.refreshAccessToken();
+          console.log("Refresh result:", refreshResult);
+
+          if (refreshResult.success) {
+            return await this.fetchTotalPosts();
+          }
+          return {
+            success: false,
+            error: "Authentication failed. Please log in again.",
+          };
+        }
+        return {
+          success: false,
+          error:
+            error.response?._data?.message || "An unexpected error occurred",
+        };
       }
     },
 
     async fetchPosts(page: number = 1): Promise<ActionResult> {
+      const authStore = useAuthStore();
+      if (!authStore.accessToken) {
+        return { success: false, error: "User not authenticated" };
+      }
+      if (this.fetchedUserId === authStore.user?.id) return { success: true };
       this.loading = true;
       try {
-        const response = await $fetch<{ data: Post[] }>(`${apiBaseUrl}/posts?page=${page}&limit=${this.limit}`);
-        this.posts = response.data || [];
-        this.currentPage = page;
-        if (this.totalPosts === 0) {
-          await this.fetchTotalPosts();
-        } else {
-          this.totalPages = Math.ceil(this.totalPosts / this.limit);
+        const response = await $fetch<{ status: boolean; data: Post[] }>(
+          `${apiBaseUrl}/posts?page=${page}&limit=${this.limit}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authStore.accessToken}`,
+            },
+            credentials: "include",
+          }
+        );
+        if (response.status) {
+          this.posts = response.data || [];
+          this.currentPage = page;
+          if (this.totalPosts === 0) {
+            await this.fetchTotalPosts();
+          } else {
+            this.totalPages = Math.ceil(this.totalPosts / this.limit);
+          }
+          this.isSearchActive = false;
+          return { success: true };
         }
-        this.isSearchActive = false;
-        return { success: true };
+        return { success: false, error: "Failed to fetch posts" };
       } catch (error: any) {
-        return { success: false, error: error.message };
+        if (error.response?.status === 401) {
+          const refreshResult = await authStore.refreshAccessToken();
+          if (refreshResult.success) {
+            return await this.fetchPosts(page);
+          }
+          return {
+            success: false,
+            error: "Authentication failed. Please log in again.",
+          };
+        }
+        return {
+          success: false,
+          error:
+            error.response?._data?.message || "An unexpected error occurred",
+        };
       } finally {
         this.loading = false;
       }
     },
 
     async searchPosts(query: string, page: number = 1): Promise<ActionResult> {
-      if (!query.trim()) return { success: false, error: 'Query cannot be empty' };
+      if (!query.trim())
+        return { success: false, error: "Query cannot be empty" };
       // Check cache
-      const cachedResult = this.searchResults.find((result) => result.query === query);
-      if (cachedResult && Date.now() - cachedResult.timestamp < 5 * 60 * 1000) { // Cache valid for 5 minutes
-        this.posts = cachedResult.posts.slice((page - 1) * this.limit, page * this.limit);
+      const cachedResult = this.searchResults.find(
+        (result) => result.query === query
+      );
+      if (cachedResult && Date.now() - cachedResult.timestamp < 5 * 60 * 1000) {
+        // Cache valid for 5 minutes
+        this.posts = cachedResult.posts.slice(
+          (page - 1) * this.limit,
+          page * this.limit
+        );
         this.currentPage = page;
         this.totalPages = Math.ceil(cachedResult.posts.length / this.limit);
         this.isSearchActive = true;
@@ -71,7 +140,10 @@ export const usePostsStore = defineStore('posts', {
             { query, posts: response.data, timestamp: Date.now() },
             ...this.searchResults.slice(0, 4),
           ];
-          this.posts = response.data.slice((page - 1) * this.limit, page * this.limit);
+          this.posts = response.data.slice(
+            (page - 1) * this.limit,
+            page * this.limit
+          );
           this.currentPage = page;
           this.totalPages = Math.ceil(response.data.length / this.limit);
           this.isSearchActive = true;
@@ -81,7 +153,7 @@ export const usePostsStore = defineStore('posts', {
           this.currentPage = 1;
           this.totalPages = 1;
           this.isSearchActive = true;
-          return { success: false, error: 'No results found' };
+          return { success: false, error: "No results found" };
         }
       } catch (error: any) {
         this.posts = [];
@@ -94,61 +166,176 @@ export const usePostsStore = defineStore('posts', {
       }
     },
 
-    async createPost(post: { title: string; bodyText?: string; imageUrl?: string }): Promise<ActionResult> {
-      if (!post.title.trim()) return { success: false, error: 'Title cannot be empty' };
+    async createPost(post: {
+      title: string;
+      bodyText?: string;
+      imageUrl?: string;
+    }): Promise<ActionResult> {
+      const authStore = useAuthStore();
+      if (!post.title.trim())
+        return { success: false, error: "Title cannot be empty" };
+      if (!authStore.user || !authStore.accessToken) {
+        return { success: false, error: "User not authenticated" };
+      }
       this.loading = true;
       try {
-        await $fetch(`${apiBaseUrl}/posts`, {
-          method: 'POST',
-          body: {
-            title: post.title,
-            bodyText: post.bodyText,
-            imageUrl: post.imageUrl,
-            authorId: 'f71d155b-2b45-4f6c-85b9-1be1a846d3f3',
-          },
-        });
-        await this.fetchPosts(this.currentPage);
-        this.totalPosts++;
-        this.totalPages = Math.ceil(this.totalPosts / this.limit);
-        this.searchResults = []; // Clear cache on new post
-        return { success: true };
+        const response = await $fetch<{ status: boolean; data: Post }>(
+          `${apiBaseUrl}/posts`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authStore.accessToken}`,
+            },
+            body: {
+              title: post.title,
+              bodyText: post.bodyText,
+              imageUrl: post.imageUrl,
+            },
+            credentials: "include",
+          }
+        );
+
+        if (response.status) {
+          await this.fetchPosts(this.currentPage);
+          this.totalPosts++;
+          this.totalPages = Math.ceil(this.totalPosts / this.limit);
+          this.searchResults = [];
+          return { success: true };
+        }
+
+        return { success: false, error: "Failed to create post" };
       } catch (error: any) {
-        return { success: false, error: error.message };
+        if (error.response?.status === 401) {
+          const refreshResult = await authStore.refreshAccessToken();
+          if (refreshResult.success) {
+            return await this.createPost(post); // Retry after refresh
+          }
+          return {
+            success: false,
+            error: "Authentication failed. Please log in again.",
+          };
+        }
+        return {
+          success: false,
+          error:
+            error.response?._data?.message || "An unexpected error occurred",
+        };
       } finally {
         this.loading = false;
       }
     },
 
-    async deletePost(id: string): Promise<ActionResult> {
+    async deletePost(id: number): Promise<ActionResult> {
+      const authStore = useAuthStore();
+      if (!authStore.accessToken) {
+        return { success: false, error: "User not authenticated" };
+      }
       const previousPosts = [...this.posts];
       this.posts = this.posts.filter((post) => post.id !== id);
       try {
-        await $fetch(`${apiBaseUrl}/posts/${id}`, {
-          method: 'DELETE',
-        });
-        this.totalPosts = Math.max(0, this.totalPosts - 1);
-        this.totalPages = Math.ceil(this.totalPosts / this.limit);
-        this.searchResults = []; // Clear cache on delete
-        return { success: true };
+        const response = await $fetch<{ status: boolean; message?: string }>(
+          `${apiBaseUrl}/posts/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${authStore.accessToken}`,
+            },
+            credentials: "include",
+          }
+        );
+        if (response.status) {
+          this.totalPosts = Math.max(0, this.totalPosts - 1);
+          this.totalPages = Math.ceil(this.totalPosts / this.limit);
+          this.searchResults = [];
+          return { success: true };
+        }
+        this.posts = previousPosts;
+        return {
+          success: false,
+          error: response.message || "Failed to delete post",
+        };
       } catch (error: any) {
         this.posts = previousPosts;
-        return { success: false, error: error.message };
+        if (error.response?.status === 401) {
+          const refreshResult = await authStore.refreshAccessToken();
+          if (refreshResult.success) {
+            return await this.deletePost(id); // Retry after refresh
+          }
+          return {
+            success: false,
+            error: "Authentication failed. Please log in again.",
+          };
+        }
+        // Handle 403 explicitly to avoid retry loop
+        if (error.response?.status === 403) {
+          return {
+            success: false,
+            error: "Not authorized to delete this post",
+          };
+        }
+        return {
+          success: false,
+          error:
+            error.response?._data?.message || "An unexpected error occurred",
+        };
       }
     },
 
-    async updatePost(id: string, post: { title: string; bodyText?: string; imageUrl?: string }): Promise<ActionResult> {
-      if (!post.title.trim()) return { success: false, error: 'Title cannot be empty' };
+    async updatePost(
+      id: number,
+      post: { title: string; bodyText?: string; imageUrl?: string }
+    ): Promise<ActionResult> {
+      const authStore = useAuthStore();
+      if (!post.title.trim())
+        return { success: false, error: "Title cannot be empty" };
+      if (!authStore.accessToken) {
+        return { success: false, error: "User not authenticated" };
+      }
       this.loadingUpdate = true;
       try {
-        await $fetch(`${apiBaseUrl}/posts/${id}`, {
-          method: 'PATCH',
-          body: { title: post.title, bodyText: post.bodyText, imageUrl: post.imageUrl },
-        });
-        await this.fetchPosts(this.currentPage);
-        this.searchResults = []; // Clear cache on update
-        return { success: true };
+        const response = await $fetch<{ status: boolean; data: Post }>(
+          `${apiBaseUrl}/posts/${id}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${authStore.accessToken}`,
+            },
+            body: {
+              title: post.title,
+              bodyText: post.bodyText,
+              imageUrl: post.imageUrl,
+            },
+            credentials: "include",
+          }
+        );
+        if (response.status) {
+          await this.fetchPosts(this.currentPage);
+          this.searchResults = [];
+          return { success: true };
+        }
+        return { success: false, error: "Failed to update post" };
       } catch (error: any) {
-        return { success: false, error: error.message };
+        if (error.response?.status === 401) {
+          const refreshResult = await authStore.refreshAccessToken();
+          if (refreshResult.success) {
+            return await this.updatePost(id, post);
+          }
+          return {
+            success: false,
+            error: "Authentication failed. Please log in again.",
+          };
+        }
+        if (error.response?.status === 403) {
+          return {
+            success: false,
+            error: "Not authorized to update this post",
+          };
+        }
+        return {
+          success: false,
+          error:
+            error.response?._data?.message || "An unexpected error occurred",
+        };
       } finally {
         this.loadingUpdate = false;
       }

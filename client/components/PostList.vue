@@ -7,7 +7,7 @@ import ViewPostModal from "./ViewPostModal.vue";
 
 defineProps<{ posts: Post[] }>();
 const emit = defineEmits<{
-  (e: "delete", id: string): void;
+  (e: "delete", id: number): void;
   (e: "updated"): void;
 }>();
 

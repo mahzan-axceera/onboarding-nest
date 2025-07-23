@@ -5,17 +5,16 @@ export interface PostInput {
 }
 
 export interface Post {
-  id: string;
+  id: number;
   title: string
   bodyText?: string
   imageUrl?: string
-  authorId: string;
+  authorId: number;
   createdAt: string;
   author: {
-    id: string;
+    id: number;
     name: string;
     email: string;
-    createdAt: string;
   };
 }
 
@@ -30,6 +29,7 @@ export interface State {
   limit: number;
   totalPosts: number;
   isSearchActive: boolean;
+  fetchedUserId: number | null;
 }
 
 export interface ActionResult {
