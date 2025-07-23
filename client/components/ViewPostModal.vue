@@ -12,10 +12,8 @@ const visible = defineModel<boolean>("visible");
   <Dialog
     v-model:visible="visible"
     modal
-    
     :style="{ width: '36rem', maxWidth: '90vw' }"
     class="p-dialog-rounded bg-white"
-    
     :draggable="false"
     :pt="{
       content: { class: 'p-0' },
@@ -64,7 +62,10 @@ const visible = defineModel<boolean>("visible");
           <!-- Post Image -->
           <img
             v-if="props.post.imageUrl"
-            :src="props.post.imageUrl"
+            :src="
+              `http://localhost:3001${props.post.imageUrl}` ||
+              `https://picsum.photos/seed/${props.post.id}/600/400?grayscale`
+            "
             alt="Post image"
             class="w-full h-auto rounded-lg mt-3 max-h-96 object-cover shadow-sm"
             @error="props.post.imageUrl = ''"

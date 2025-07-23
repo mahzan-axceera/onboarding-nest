@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { PostInput } from "~/types/post";
 
 const emit = defineEmits<{
-  (e: "submit", post: PostInput): void;
+  (e: "submit", post: FormData): void;
 }>();
 defineProps<{
   loading: boolean;
@@ -12,8 +12,10 @@ defineProps<{
 
 const title = ref<string>("");
 const bodyText = ref<string>("");
-const imageUrl = ref<string | undefined>(undefined);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const imagePreview = ref<string | undefined>(undefined);
+const formErrors = ref<Partial<Record<keyof PostInput, string>>>({});
+const fileError = ref<string | undefined>(undefined);
 
 const postSchema = z.object({
   title: z
@@ -27,23 +29,27 @@ const postSchema = z.object({
     .min(1, "Body text is required")
     .min(3, "Body text must be at least 3 characters")
     .max(250, "Body text must be at most 500 characters"),
-  imageUrl: z.string().url("Invalid image URL").optional(),
 });
 
-const formErrors = ref<Partial<Record<keyof PostInput, string>>>({});
-
-// Handle image file upload
 function handleImageUpload(e: Event) {
   const file = (e.target as HTMLInputElement)?.files?.[0];
   if (file) {
-    // Clean up previous URL
-    if (imageUrl.value?.startsWith("blob:")) {
-      URL.revokeObjectURL(imageUrl.value);
+    if (!file.type.match(/image\/(jpg|jpeg|png)/)) {
+      fileError.value = "Only JPG, JPEG, and PNG files are allowed";
+      return;
     }
-
-    imageUrl.value = URL.createObjectURL(file); // could be uploaded to server instead
+    if (file.size > 5 * 1024 * 1024) {
+      fileError.value = "File size must be less than 5MB";
+      return;
+    }
+    fileError.value = undefined;
+    if (imagePreview.value?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview.value);
+    }
+    imagePreview.value = URL.createObjectURL(file);
   } else {
-    imageUrl.value = undefined;
+    fileError.value = undefined;
+    imagePreview.value = undefined;
   }
 }
 
@@ -51,7 +57,6 @@ function handleSubmit() {
   const payload = {
     title: title.value.trim(),
     bodyText: bodyText.value.trim(),
-    imageUrl: imageUrl.value || undefined,
   };
 
   const result = postSchema.safeParse(payload);
@@ -66,20 +71,20 @@ function handleSubmit() {
 
   formErrors.value = {};
 
-  emit("submit", result.data);
+  const formData = new FormData();
+  formData.append("title", payload.title);
+  formData.append("bodyText", payload.bodyText);
+  if (fileInputRef.value?.files?.[0]) {
+    formData.append("image", fileInputRef.value.files[0]);
+  }
+
+  emit("submit", formData);
 
   title.value = "";
   bodyText.value = "";
-  imageUrl.value = undefined;
-
+  imagePreview.value = undefined;
   if (fileInputRef.value) {
     fileInputRef.value.value = "";
-  }
-
-  if (payload.imageUrl?.startsWith("blob:")) {
-    setTimeout(() => {
-      URL.revokeObjectURL(payload.imageUrl!);
-    }, 3000);
   }
 }
 </script>
@@ -123,12 +128,12 @@ function handleSubmit() {
         @change="handleImageUpload"
         class="block text-xs text-gray-600 file:text-sm file:bg-blue-50 file:border-0 file:px-3 file:py-1 file:rounded-full file:text-blue-600 hover:file:bg-blue-100"
       />
-      <p v-if="formErrors.imageUrl" class="text-xs text-red-500 mt-1">
-        {{ formErrors.imageUrl }}
+      <p v-if="fileError" class="text-xs text-red-500 mt-1">
+        {{ fileError }}
       </p>
       <button
         type="submit"
-        :disabled="loading || !title.trim()"
+        :disabled="loading || !title.trim() || !bodyText.trim()"
         class="ml-auto bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {{ loading ? "Posting..." : "Post" }}
@@ -136,9 +141,9 @@ function handleSubmit() {
     </div>
 
     <!-- Optional: Show image preview -->
-    <div v-if="imageUrl" class="pt-1">
+    <div v-if="imagePreview" class="pt-1">
       <img
-        :src="imageUrl"
+        :src="imagePreview"
         alt="Preview"
         class="w-full max-h-40 object-cover rounded-md border"
       />

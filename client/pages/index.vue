@@ -41,7 +41,7 @@ async function fetchPosts(page: number = postsStore.currentPage) {
   }
 }
 
-const handleCreatePost = async (post: PostInput) => {
+const handleCreatePost = async (post: FormData) => {
   const result = await postsStore.createPost(post);
   toast.add({
     severity: result.success ? "success" : "error",

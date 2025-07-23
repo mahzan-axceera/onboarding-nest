@@ -17,14 +17,18 @@ export class PostsService {
     private typesense: TypesenseService,
   ) {}
 
-  async create(dto: CreatePostDto, userId: number) {
+  async create(
+    dto: CreatePostDto,
+    file: Express.Multer.File | undefined,
+    userId: number,
+  ) {
     try {
-      // Create the post
+      const imageUrl = file ? `/uploads/${file.filename}` : dto.imageUrl;
       const post = await this.prisma.post.create({
         data: {
           title: dto.title,
           bodyText: dto.bodyText,
-          imageUrl: dto.imageUrl,
+          imageUrl,
           authorId: userId,
         },
       });
@@ -71,15 +75,25 @@ export class PostsService {
     return post;
   }
 
-  async update(id: number, dto: UpdatePostDto, userId: number) {
+  async update(
+    id: number,
+    dto: UpdatePostDto,
+    file: Express.Multer.File | undefined,
+    userId: number,
+  ) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
     if (post.authorId !== userId)
       throw new UnauthorizedException('Not authorized to update this post');
 
+    const imageUrl = file ? `/uploads/${file.filename}` : dto.imageUrl;
+
     const updatedPost = await this.prisma.post.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        imageUrl,
+      },
     });
     await this.typesense.indexPost({
       ...updatedPost,

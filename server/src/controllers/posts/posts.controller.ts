@@ -8,14 +8,19 @@ import {
   Post,
   Query,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PostsService } from '../../services/posts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -24,9 +29,45 @@ export class PostsController {
 
   @Post()
   @UseGuards(JwtAuthGuard) // Protect POST /posts
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return cb(new Error('Only image files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    }),
+  )
   @ApiOperation({ summary: 'Create a new post (authenticated users only)' })
-  create(@Body() dto: CreatePostDto, @Request() req) {
-    return this.postsService.create(dto, req.user.sub);
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', example: 'Post title' },
+        bodyText: { type: 'string', example: 'Post content' },
+        image: { type: 'string', format: 'binary' },
+      },
+      required: ['title'],
+    },
+  })
+  create(
+    @Body() dto: CreatePostDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    return this.postsService.create(dto, file, req.user.sub);
   }
 
   @Get()
@@ -61,9 +102,46 @@ export class PostsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return cb(new Error('Only image files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    }),
+  )
   @ApiOperation({ summary: 'Update a post (authenticated users only)' })
-  update(@Param('id') id: number, @Body() dto: UpdatePostDto, @Request() req) {
-    return this.postsService.update(id, dto, req.user.sub);
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', example: 'Updated Post title' },
+        bodyText: { type: 'string', example: 'Updated Post content' },
+        image: { type: 'string', format: 'binary' },
+      },
+      required: ['title'],
+    },
+  })
+  update(
+    @Param('id') id: number,
+    @Body() dto: UpdatePostDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    return this.postsService.update(id, dto, file, req.user.sub);
   }
 
   @Delete(':id')

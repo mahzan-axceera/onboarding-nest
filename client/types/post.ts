@@ -1,7 +1,6 @@
 export interface PostInput {
   title: string;
   bodyText?: string;
-  imageUrl?: string;
 }
 
 export interface Post {

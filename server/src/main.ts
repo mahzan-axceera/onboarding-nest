@@ -1,9 +1,10 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as cookieParser from 'cookie-parser';
+import * as express from 'express';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './response.interceptor';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +21,7 @@ async function bootstrap() {
   );
 
   app.use(cookieParser());
+  app.use('/uploads', express.static('uploads')); // Serve uploads directory
 
   const config = new DocumentBuilder()
     .setTitle('Axceera API')
@@ -39,6 +41,6 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     exposedHeaders: ['Set-Cookie'], // Expose Set-Cookie header
   });
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

@@ -13,9 +13,11 @@ const emit = defineEmits<{
   (e: "edit"): void;
 }>();
 
+const $authStore = useAuthStore();
 function handleDelete() {
   emit("delete");
 }
+
 </script>
 
 <template>
@@ -89,6 +91,7 @@ function handleDelete() {
             <EyeIcon class="w-5 h-5" />
           </button>
           <button
+            v-if="post.author?.id === $authStore.user?.id"
             @click="emit('edit')"
             title="Edit"
             class="hover:text-blue-600 transition-colors"
@@ -111,7 +114,7 @@ function handleDelete() {
       class="w-24 h-24 flex-shrink-0 rounded overflow-hidden border border-gray-200"
     >
       <img
-        :src="post.imageUrl || `https://picsum.photos/seed/${post.id}/600/400?grayscale` "
+        :src="`http://localhost:3001${post.imageUrl}` || `https://picsum.photos/seed/${post.id}/600/400?grayscale` "
         alt="Post preview"
         class="w-full h-full object-cover"
       />

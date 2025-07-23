@@ -166,14 +166,8 @@ export const usePostsStore = defineStore("posts", {
       }
     },
 
-    async createPost(post: {
-      title: string;
-      bodyText?: string;
-      imageUrl?: string;
-    }): Promise<ActionResult> {
+    async createPost(formData: FormData): Promise<ActionResult> {
       const authStore = useAuthStore();
-      if (!post.title.trim())
-        return { success: false, error: "Title cannot be empty" };
       if (!authStore.user || !authStore.accessToken) {
         return { success: false, error: "User not authenticated" };
       }
@@ -186,11 +180,7 @@ export const usePostsStore = defineStore("posts", {
             headers: {
               Authorization: `Bearer ${authStore.accessToken}`,
             },
-            body: {
-              title: post.title,
-              bodyText: post.bodyText,
-              imageUrl: post.imageUrl,
-            },
+            body: formData,
             credentials: "include",
           }
         );
@@ -208,7 +198,7 @@ export const usePostsStore = defineStore("posts", {
         if (error.response?.status === 401) {
           const refreshResult = await authStore.refreshAccessToken();
           if (refreshResult.success) {
-            return await this.createPost(post); // Retry after refresh
+            return await this.createPost(formData); // Retry after refresh
           }
           return {
             success: false,
@@ -281,12 +271,9 @@ export const usePostsStore = defineStore("posts", {
       }
     },
 
-    async updatePost(
-      id: number,
-      post: { title: string; bodyText?: string; imageUrl?: string }
-    ): Promise<ActionResult> {
+    async updatePost(id: number, formData: FormData): Promise<ActionResult> {
       const authStore = useAuthStore();
-      if (!post.title.trim())
+      if (!formData.get("title")?.toString().trim())
         return { success: false, error: "Title cannot be empty" };
       if (!authStore.accessToken) {
         return { success: false, error: "User not authenticated" };
@@ -300,11 +287,7 @@ export const usePostsStore = defineStore("posts", {
             headers: {
               Authorization: `Bearer ${authStore.accessToken}`,
             },
-            body: {
-              title: post.title,
-              bodyText: post.bodyText,
-              imageUrl: post.imageUrl,
-            },
+            body: formData,
             credentials: "include",
           }
         );
@@ -318,7 +301,7 @@ export const usePostsStore = defineStore("posts", {
         if (error.response?.status === 401) {
           const refreshResult = await authStore.refreshAccessToken();
           if (refreshResult.success) {
-            return await this.updatePost(id, post);
+            return await this.updatePost(id, formData);
           }
           return {
             success: false,
