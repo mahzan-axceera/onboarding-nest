@@ -29,7 +29,7 @@ watch(
     title.value = newPost?.title || "";
     bodyText.value = newPost?.bodyText || "";
     imagePreview.value =
-      `http://localhost:3001${newPost?.imageUrl}` ||
+      newPost?.imageUrl ||
       `https://picsum.photos/seed/${newPost?.id}/600/400?grayscale`;
     fileError.value = undefined;
     if (fileInputRef.value) {

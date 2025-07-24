@@ -9,12 +9,14 @@ import { CreatePostDto } from '../controllers/posts/dto/create-post.dto';
 import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from 'src/controllers/auth/dto/register.dto';
+import { SupabaseService } from './supabase.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     private prisma: PrismaService,
     private typesense: TypesenseService,
+    private supabase: SupabaseService,
   ) {}
 
   async create(
@@ -23,7 +25,28 @@ export class PostsService {
     userId: number,
   ) {
     try {
-      const imageUrl = file ? `/uploads/${file.filename}` : dto.imageUrl;
+      let imageUrl: string | undefined;
+      if (file) {
+        // console.log('Uploading image:', { file, size: file.size }); // Debug
+        const { data, error } = await this.supabase
+          .getClient()
+          .storage.from('dino-feed')
+          .upload(`${userId}/${file.originalname}`, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true,
+          });
+        if (error) {
+          console.error('Supabase upload error:', error); // Debug
+          throw new InternalServerErrorException(
+            `Failed to upload image to Supabase: ${error.message}`,
+          );
+        }
+        // console.log('Supabase upload response:', data); // Debug
+        imageUrl = this.supabase
+          .getClient()
+          .storage.from('dino-feed')
+          .getPublicUrl(`${userId}/${file.originalname}`).data.publicUrl;
+      }
       const post = await this.prisma.post.create({
         data: {
           title: dto.title,
@@ -48,7 +71,6 @@ export class PostsService {
 
       return post;
     } catch (err) {
-      // Default to 500 for unknown errors
       console.error('Post creation failed:', err);
       throw new InternalServerErrorException('Failed to create post');
     }
@@ -86,7 +108,24 @@ export class PostsService {
     if (post.authorId !== userId)
       throw new UnauthorizedException('Not authorized to update this post');
 
-    const imageUrl = file ? `/uploads/${file.filename}` : dto.imageUrl;
+    let imageUrl = post.imageUrl;
+    if (file) {
+      const { data, error } = await this.supabase
+        .getClient()
+        .storage.from('dino-feed')
+        .upload(`${userId}/${file.originalname}`, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+      if (error)
+        throw new InternalServerErrorException(
+          'Failed to upload image to Supabase',
+        );
+      imageUrl = this.supabase
+        .getClient()
+        .storage.from('dino-feed')
+        .getPublicUrl(`${userId}/${file.originalname}`).data.publicUrl;
+    }
 
     const updatedPost = await this.prisma.post.update({
       where: { id },

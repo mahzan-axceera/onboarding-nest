@@ -63,7 +63,7 @@ const visible = defineModel<boolean>("visible");
           <img
             v-if="props.post.imageUrl"
             :src="
-              `http://localhost:3001${props.post.imageUrl}` ||
+              props.post.imageUrl ||
               `https://picsum.photos/seed/${props.post.id}/600/400?grayscale`
             "
             alt="Post image"
