@@ -10,6 +10,7 @@ import { UpdatePostDto } from '../controllers/posts/dto/update-post.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from 'src/controllers/auth/dto/register.dto';
 import { SupabaseService } from './supabase.service';
+import { SubscriptionService } from './subscription.service';
 
 @Injectable()
 export class PostsService {
@@ -17,14 +18,28 @@ export class PostsService {
     private prisma: PrismaService,
     private typesense: TypesenseService,
     private supabase: SupabaseService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async create(
     dto: CreatePostDto,
     file: Express.Multer.File | undefined,
     userId: number,
+    userRole: Role,
   ) {
     try {
+      console.log('Creating post for:', { userId, userRole });
+      // Skip subscription check for admins
+      if (userRole !== Role.ADMIN) {
+        const { canCreate, reason } =
+          await this.subscriptionService.canCreatePost(userId);
+          console.log('Subscription check:', { userId, canCreate, reason });
+        if (!canCreate) {
+          throw new UnauthorizedException(
+            reason || 'Cannot create post due to subscription limits',
+          );
+        }
+      }
       let imageUrl: string | undefined;
       if (file) {
         // console.log('Uploading image:', { file, size: file.size }); // Debug
@@ -72,7 +87,9 @@ export class PostsService {
       return post;
     } catch (err) {
       console.error('Post creation failed:', err);
-      throw new InternalServerErrorException('Failed to create post');
+      throw err instanceof UnauthorizedException
+        ? err
+        : new InternalServerErrorException('Failed to create post');
     }
   }
 

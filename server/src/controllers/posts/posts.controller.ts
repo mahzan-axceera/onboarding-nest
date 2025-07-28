@@ -59,7 +59,7 @@ export class PostsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
-    return this.postsService.create(dto, file, req.user.sub);
+    return this.postsService.create(dto, file, req.user.sub, req.user.role);
   }
 
   @Get()

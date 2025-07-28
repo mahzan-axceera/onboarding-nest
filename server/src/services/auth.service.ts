@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RegisterDto, Role } from 'src/controllers/auth/dto/register.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDto } from 'src/controllers/auth/dto/login.dto';
+import { SubscriptionService } from './subscription.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -30,10 +32,8 @@ export class AuthService {
 
     // Check if this is the first user
     const userCount = await this.prisma.user.count();
-
     const role = userCount === 0 ? Role.ADMIN : Role.CUSTOMER;
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // Create user
@@ -69,6 +69,9 @@ export class AuthService {
     });
 
     const refreshToken = await this.generateRefreshToken(user.id);
+    const subscription = await this.subscriptionService.getActiveSubscription(
+      user.id,
+    );
     return {
       accessToken,
       refreshToken,
@@ -77,6 +80,15 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        subscription: subscription
+          ? {
+              tier: subscription.tier,
+              postLimit: subscription.postLimit,
+              status: subscription.status,
+              interval: subscription.interval,
+              currentPeriodEnd: subscription.currentPeriodEnd,
+            }
+          : null,
       },
     };
   }
@@ -185,6 +197,19 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return user;
+    const subscription =
+      await this.subscriptionService.getActiveSubscription(userId);
+    return {
+      ...user,
+      subscription: subscription
+        ? {
+            tier: subscription.tier,
+            postLimit: subscription.postLimit,
+            status: subscription.status,
+            interval: subscription.interval,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+          }
+        : null,
+    };
   }
 }

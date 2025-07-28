@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './controllers/auth/auth.module';
 import { AuthService } from './services/auth.service';
 import { SupabaseService } from './services/supabase.service';
+import { SubscriptionModule } from './controllers/subscriptions/subscription.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { SupabaseService } from './services/supabase.service';
     PostsModule,
     PrismaModule,
     AuthModule,
+    SubscriptionModule
   ],
   providers: [SupabaseService],
 })
